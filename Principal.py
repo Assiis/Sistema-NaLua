@@ -142,6 +142,20 @@ def aba_estoque():
     produtos = db.listar_produtos()
     if not produtos:
         st.info("Nenhum item cadastrado ainda.")
+        renderizar_estoque_auxiliar(
+            tipo="ingredientes",
+            titulo="Estoque de ingredientes",
+            singular="ingrediente",
+            formulario_key="novo_ingrediente",
+            editor_key="editor_ingredientes",
+        )
+        renderizar_estoque_auxiliar(
+            tipo="embalagens",
+            titulo="Estoque de embalagens",
+            singular="embalagem",
+            formulario_key="nova_embalagem",
+            editor_key="editor_embalagens",
+        )
         return
 
     tabela = pd.DataFrame(produtos)
@@ -207,6 +221,82 @@ def aba_estoque():
         db.desativar_produto(opcoes[escolhido])
         st.success("Item removido da lista. O histórico de vendas continua salvo.")
         recarregar()
+
+    renderizar_estoque_auxiliar(
+        tipo="ingredientes",
+        titulo="Estoque de ingredientes",
+        singular="ingrediente",
+        formulario_key="novo_ingrediente",
+        editor_key="editor_ingredientes",
+    )
+    renderizar_estoque_auxiliar(
+        tipo="embalagens",
+        titulo="Estoque de embalagens",
+        singular="embalagem",
+        formulario_key="nova_embalagem",
+        editor_key="editor_embalagens",
+    )
+
+
+def renderizar_estoque_auxiliar(tipo, titulo, singular, formulario_key, editor_key):
+    st.subheader(titulo)
+    with st.form(formulario_key, clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        nome = col1.text_input(f"Nome da {singular}")
+        quantidade = col2.number_input("Quantidade", min_value=0, step=1, value=0)
+        if st.form_submit_button(f"Salvar {singular}", type="primary"):
+            if not nome.strip():
+                st.error(f"Informe o nome da {singular}.")
+            else:
+                try:
+                    db.criar_estoque_auxiliar(tipo, nome, int(quantidade))
+                    st.success(f"{nome} cadastrado.")
+                    recarregar()
+                except Exception as exc:
+                    st.error(f"Não foi possível cadastrar: {exc}")
+
+    itens = db.listar_estoque_auxiliar(tipo)
+    if not itens:
+        st.info(f"Nenhum {singular} cadastrado ainda.")
+        return
+
+    tabela = pd.DataFrame(itens)
+    tabela["status"] = tabela["quantidade"].apply(
+        lambda qtd: "Esgotado" if qtd == 0 else "Acabando" if qtd <= 10 else "Normal"
+    )
+    editor = tabela.rename(
+        columns={"id": "ID", "nome": "Nome", "quantidade": "Quantidade", "status": "Status"}
+    )
+    editado = st.data_editor(
+        editor[["ID", "Nome", "Quantidade", "Status"]],
+        hide_index=True,
+        use_container_width=True,
+        num_rows="fixed",
+        disabled=["ID", "Status"],
+        column_config={
+            "Quantidade": st.column_config.NumberColumn(min_value=0, step=1),
+            "Status": st.column_config.TextColumn(),
+        },
+        key=editor_key,
+    )
+
+    baixos = tabela[tabela["quantidade"] <= 10]
+    if not baixos.empty:
+        nomes = ", ".join(f"{linha['nome']} ({linha['quantidade']})" for _, linha in baixos.iterrows())
+        st.warning(f"Atenção: {singular}s acabando ou esgotados: {nomes}.")
+    else:
+        st.success(f"Todos os {singular}s estão com estoque normal.")
+
+    if st.button(f"Salvar alterações de {titulo.lower()}", type="primary", key=f"salvar_{tipo}"):
+        try:
+            for _, linha in editado.iterrows():
+                db.atualizar_estoque_auxiliar(
+                    tipo, int(linha["ID"]), str(linha["Nome"]), int(linha["Quantidade"])
+                )
+            st.success(f"{titulo} atualizado.")
+            recarregar()
+        except Exception as exc:
+            st.error(f"Não foi possível salvar: {exc}")
 
 
 def aba_vendas():
