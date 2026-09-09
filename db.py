@@ -21,6 +21,11 @@ SABORES_INICIAIS = [
     ("Abacaxi", Decimal("0.70"), Decimal("2.50")),
 ]
 
+TABELAS_ESTOQUE_AUXILIAR = {
+    "ingredientes": "ingredientes",
+    "embalagens": "embalagens",
+}
+
 
 def _config():
     return {
@@ -184,6 +189,58 @@ def desativar_produto(produto_id):
                 "UPDATE produtos SET ativo = FALSE, atualizado_em = NOW() WHERE id = %s",
                 (produto_id,),
             )
+        conn.commit()
+
+
+def _tabela_estoque_auxiliar(tipo):
+    try:
+        return TABELAS_ESTOQUE_AUXILIAR[tipo]
+    except KeyError as exc:
+        raise ValueError("Tipo de estoque inválido.") from exc
+
+
+def listar_estoque_auxiliar(tipo):
+    tabela = _tabela_estoque_auxiliar(tipo)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT id, nome, quantidade FROM {tabela} ORDER BY nome")
+            return cur.fetchall()
+
+
+def criar_estoque_auxiliar(tipo, nome, quantidade):
+    tabela = _tabela_estoque_auxiliar(tipo)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    f"""
+                    INSERT INTO {tabela} (nome, quantidade)
+                    VALUES (%s, %s)
+                    """,
+                    (nome.strip(), quantidade),
+                )
+            except UniqueViolation as exc:
+                conn.rollback()
+                raise ValueError("Já existe um item com esse nome.") from exc
+        conn.commit()
+
+
+def atualizar_estoque_auxiliar(tipo, item_id, nome, quantidade):
+    tabela = _tabela_estoque_auxiliar(tipo)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    f"""
+                    UPDATE {tabela}
+                    SET nome = %s, quantidade = %s, atualizado_em = NOW()
+                    WHERE id = %s
+                    """,
+                    (nome.strip(), quantidade, item_id),
+                )
+            except UniqueViolation as exc:
+                conn.rollback()
+                raise ValueError("Já existe um item com esse nome.") from exc
         conn.commit()
 
 
