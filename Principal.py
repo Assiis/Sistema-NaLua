@@ -23,6 +23,11 @@ st.markdown(
             border-radius: 14px;
             padding: 12px 16px;
         }
+        /* Força a cor do texto e do número para azul escuro */
+        div[data-testid="stMetric"] label,
+        div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+            color: #0f4c5c !important;
+        }
         h1, h2, h3 { color: #0f4c5c; }
     </style>
     """,
