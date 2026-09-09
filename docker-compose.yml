@@ -3,8 +3,8 @@ services:
     image: postgres:16
     environment:
       POSTGRES_DB: nalua
-      POSTGRES_USER: nalua
-      POSTGRES_PASSWORD: nalua
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: M@theus27062023
     ports:
       - "5432:5432"
     volumes:
